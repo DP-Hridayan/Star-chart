@@ -31,28 +31,44 @@ function get(path, token, accept) {
 async function fetchAllStargazers(owner, repo, token) {
   // 1. Get total star count so we can parallelise page fetches
   const repoData = await get(`/repos/${owner}/${repo}`, token);
-  if (repoData.message) throw new Error(`GitHub API: ${repoData.message}`);
+  if (repoData.message) throw new Error(`GitHub API (repo): ${repoData.message}`);
 
   const total = repoData.stargazers_count || 0;
   if (total === 0) return [];
 
   const totalPages = Math.ceil(total / 100);
 
-  // 2. Fetch all pages in parallel — fast even for large repos
-  const pages = await Promise.all(
-    Array.from({ length: totalPages }, (_, i) =>
-      get(
-        `/repos/${owner}/${repo}/stargazers?per_page=100&page=${i + 1}`,
-        token,
-        'application/vnd.github.star+json'
-      )
-    )
+  // 2. Probe first page first — surfaces auth/scope errors before parallel blast
+  const firstPage = await get(
+    `/repos/${owner}/${repo}/stargazers?per_page=100&page=1`,
+    token,
+    'application/vnd.github.star+json'
   );
+  if (!Array.isArray(firstPage)) {
+    throw new Error(`GitHub API (stargazers): ${firstPage.message || JSON.stringify(firstPage)}`);
+  }
 
-  // 3. Count stars per day, build cumulative array
+  // 3. Fetch remaining pages in parallel
+  const restPages = totalPages > 1
+    ? await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, i) =>
+          get(
+            `/repos/${owner}/${repo}/stargazers?per_page=100&page=${i + 2}`,
+            token,
+            'application/vnd.github.star+json'
+          )
+        )
+      )
+    : [];
+
+  const pages = [firstPage, ...restPages];
+
+  // 4. Count stars per day, build cumulative array
   const dateCounts = {};
   for (const page of pages) {
-    if (!Array.isArray(page)) continue;
+    if (!Array.isArray(page)) {
+      throw new Error(`GitHub API (page): ${page.message || JSON.stringify(page)}`);
+    }
     for (const entry of page) {
       const date = (entry.starred_at || '').split('T')[0];
       if (date) dateCounts[date] = (dateCounts[date] || 0) + 1;
