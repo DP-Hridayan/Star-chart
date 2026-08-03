@@ -1,0 +1,8 @@
+{
+  "name": "star-chart",
+  "version": "1.0.0",
+  "description": "Dynamic GitHub star history chart — works for any public repo",
+  "engines": {
+    "node": "20.x"
+  }
+}
