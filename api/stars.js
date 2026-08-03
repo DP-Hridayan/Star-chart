@@ -120,21 +120,15 @@ function bucketStartDate(key, type) {
   return new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00Z`);
 }
 
-// X-axis label as elapsed time from firstDate
+// X-axis label as elapsed time from firstDate — full words, months only
 function relativeTimeLabel(key, type, firstDate, isLast) {
   if (isLast) return 'Now';
   const d = bucketStartDate(key, type);
   const days = Math.round((d - firstDate) / 86_400_000);
-  if (days < 1)  return 'Start';
-  if (days < 7)  return `${days}d`;
-  if (days < 60) return `${Math.round(days / 7)}W`;
-  if (days < 548) { // < 18 months → show months
-    const m = Math.round(days / 30.44);
-    return `${m}M`;
-  }
-  // 18 months+ → show years (rounded to nearest 0.5)
-  const y = Math.round((days / 365.25) * 2) / 2;
-  return Number.isInteger(y) ? `${y}Y` : `${y}Y`;
+  if (days < 1) return 'Start';
+  if (days < 30) return days === 1 ? '1 day' : `${days} days`;
+  const months = Math.round(days / 30.44);
+  return months === 1 ? '1 month' : `${months} months`;
 }
 
 function buildBuckets(history) {
@@ -248,7 +242,7 @@ function generateSVG(history, themeName, repoLabel) {
   const W = 480, H = 400;
   const PL = 54, PR = 16, PT = 36, PB = 44;
   const CW = W - PL - PR, CH = H - PT - PB;
-  const GRID = 5, MAX_TICKS = 7;
+  const GRID = 5, MAX_TICKS = 2;
 
   const yMax = niceCeil(total * 1.08);
   const px   = i => n <= 1 ? PL + CW / 2 : PL + (i / (n - 1)) * CW;
