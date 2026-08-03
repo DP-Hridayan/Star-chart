@@ -191,12 +191,14 @@ function getMilestones(counts) {
 const THEMES = {
   light: {
     bg: '#ffffff', border: '#e0e0e0', grid: '#f0f0f0',
+    axis: '#c0c0c0',
     axisText: '#5f6368', titleText: '#1c1b1f',
     line: '#1a73e8', gradTop: '#1a73e8', gradBot: '#ffffff',
     dot: '#1a73e8', pillBg: '#e8f0fe', pillBorder: '#1a73e8', pillText: '#1c1b1f',
   },
   dark: {
     bg: '#1e1e2e', border: '#313244', grid: '#2a2a3e',
+    axis: '#45475a',
     axisText: '#a6adc8', titleText: '#cdd6f4',
     line: '#89b4fa', gradTop: '#89b4fa', gradBot: '#1e1e2e',
     dot: '#89b4fa', pillBg: '#1e3a5f', pillBorder: '#89b4fa', pillText: '#cdd6f4',
@@ -232,17 +234,17 @@ function generateSVG(history, themeName, repoLabel) {
   const n = counts.length;
 
   if (n === 0) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="400" viewBox="0 0 480 400">
-  <rect width="480" height="400" rx="12" fill="${t.bg}"/>
-  <text x="240" y="200" text-anchor="middle" font-family="sans-serif" font-size="14" fill="${t.axisText}">No star data found for ${repoLabel}</text>
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+  <rect width="800" height="400" rx="12" fill="${t.bg}"/>
+  <text x="400" y="200" text-anchor="middle" font-family="sans-serif" font-size="14" fill="${t.axisText}">No star data found for ${repoLabel}</text>
 </svg>`;
   }
 
   const total = counts[n - 1];
-  const W = 480, H = 400;
-  const PL = 54, PR = 16, PT = 36, PB = 44;
+  const W = 800, H = 400;
+  const PL = 58, PR = 24, PT = 36, PB = 48;
   const CW = W - PL - PR, CH = H - PT - PB;
-  const GRID = 5, MAX_TICKS = 2;
+  const GRID = 5, MAX_TICKS = 3;
 
   const yMax = niceCeil(total * 1.08);
   const px   = i => n <= 1 ? PL + CW / 2 : PL + (i / (n - 1)) * CW;
@@ -288,13 +290,20 @@ function generateSVG(history, themeName, repoLabel) {
   for (const v of yVals) {
     const y = py(v).toFixed(1);
     o.push(`<line x1="${PL}" y1="${y}" x2="${PL+CW}" y2="${y}" stroke="${t.grid}" stroke-width="1"/>`);
-    o.push(`<text x="${PL-6}" y="${(py(v)+4).toFixed(1)}" text-anchor="end" class="ax">${fmtY(v)}</text>`);
+    // small tick mark on the Y axis
+    o.push(`<line x1="${PL-4}" y1="${y}" x2="${PL}" y2="${y}" stroke="${t.axis}" stroke-width="1"/>`);
+    o.push(`<text x="${PL-8}" y="${(py(v)+4).toFixed(1)}" text-anchor="end" class="ax">${fmtY(v)}</text>`);
   }
+
+  // Y-axis vertical line
+  o.push(`<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+CH}" stroke="${t.axis}" stroke-width="1.5"/>`);
+  // X-axis bottom line
+  o.push(`<line x1="${PL}" y1="${PT+CH}" x2="${PL+CW}" y2="${PT+CH}" stroke="${t.axis}" stroke-width="1.5"/>`);
 
   for (const i of xTicks) {
     const x = px(i).toFixed(1);
-    o.push(`<line x1="${x}" y1="${PT+CH}" x2="${x}" y2="${PT+CH+4}" stroke="${t.axisText}" stroke-width="1"/>`);
-    o.push(`<text x="${x}" y="${PT+CH+16}" text-anchor="middle" class="ax">${labels[i]}</text>`);
+    o.push(`<line x1="${x}" y1="${PT+CH}" x2="${x}" y2="${PT+CH+5}" stroke="${t.axis}" stroke-width="1.5"/>`);
+    o.push(`<text x="${x}" y="${PT+CH+18}" text-anchor="middle" class="ax">${labels[i]}</text>`);
   }
 
   o.push(`<path d="${areaD}" fill="url(#gr)" clip-path="url(#cp)"/>`);
