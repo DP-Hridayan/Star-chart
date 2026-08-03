@@ -121,8 +121,7 @@ function bucketStartDate(key, type) {
 }
 
 // X-axis label as elapsed time from firstDate — full words, months only
-function relativeTimeLabel(key, type, firstDate, isLast) {
-  if (isLast) return 'Now';
+function relativeTimeLabel(key, type, firstDate) {
   const d = bucketStartDate(key, type);
   const days = Math.round((d - firstDate) / 86_400_000);
   if (days < 1) return 'Start';
@@ -147,7 +146,7 @@ function buildBuckets(history) {
   const firstDate = bucketStartDate(keys[0], type);
   return {
     counts: keys.map(k => map[k]),
-    labels: keys.map((k, i) => relativeTimeLabel(k, type, firstDate, i === keys.length - 1)),
+    labels: keys.map(k => relativeTimeLabel(k, type, firstDate)),
   };
 }
 
