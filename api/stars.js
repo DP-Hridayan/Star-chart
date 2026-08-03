@@ -108,32 +108,52 @@ function bucketKey(dateStr, type) {
   return `${d.getUTCFullYear()}-Q${q}`;
 }
 
-function bucketLabel(key, type) {
-  if (type === 'week') {
-    const d = new Date(key);
-    return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+// Convert a bucket key back to its start date (UTC)
+function bucketStartDate(key, type) {
+  if (type === 'week' || type === 'month' || type === 'month_year') {
+    const iso = key.length === 7 ? key + '-01' : key; // YYYY-MM → YYYY-MM-01
+    return new Date(iso + 'T00:00:00Z');
   }
-  if (type === 'month') return MONTHS[new Date(key + '-01').getUTCMonth()];
-  if (type === 'month_year') {
-    const d = new Date(key + '-01');
-    return `${MONTHS[d.getUTCMonth()]} '${String(d.getUTCFullYear()).slice(2)}`;
-  }
+  // quarter: "2024-Q2" → April 1 2024
   const [year, q] = key.split('-');
-  return `${q} '${year.slice(2)}`;
+  const month = (parseInt(q[1]) - 1) * 3 + 1;
+  return new Date(`${year}-${String(month).padStart(2, '0')}-01T00:00:00Z`);
+}
+
+// X-axis label as elapsed time from firstDate
+function relativeTimeLabel(key, type, firstDate, isLast) {
+  if (isLast) return 'Now';
+  const d = bucketStartDate(key, type);
+  const days = Math.round((d - firstDate) / 86_400_000);
+  if (days < 1)  return 'Start';
+  if (days < 7)  return `${days}d`;
+  if (days < 60) return `${Math.round(days / 7)}W`;
+  if (days < 548) { // < 18 months → show months
+    const m = Math.round(days / 30.44);
+    return `${m}M`;
+  }
+  // 18 months+ → show years (rounded to nearest 0.5)
+  const y = Math.round((days / 365.25) * 2) / 2;
+  return Number.isInteger(y) ? `${y}Y` : `${y}Y`;
 }
 
 function buildBuckets(history) {
   if (!history.length) return { counts: [], labels: [] };
   const type = getBucketType(history);
+  // Safety: never create buckets beyond today
+  const todayKey = bucketKey(new Date().toISOString().split('T')[0], type);
   const map = {};
   for (const e of history) {
     const k = bucketKey(e.date, type);
+    if (k > todayKey) continue;
     map[k] = Math.max(map[k] || 0, e.cumulative);
   }
   const keys = Object.keys(map).sort();
+  if (!keys.length) return { counts: [], labels: [] };
+  const firstDate = bucketStartDate(keys[0], type);
   return {
     counts: keys.map(k => map[k]),
-    labels: keys.map(k => bucketLabel(k, type)),
+    labels: keys.map((k, i) => relativeTimeLabel(k, type, firstDate, i === keys.length - 1)),
   };
 }
 
@@ -218,17 +238,17 @@ function generateSVG(history, themeName, repoLabel) {
   const n = counts.length;
 
   if (n === 0) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="820" height="280" viewBox="0 0 820 280">
-  <rect width="820" height="280" rx="12" fill="${t.bg}"/>
-  <text x="410" y="140" text-anchor="middle" font-family="sans-serif" font-size="14" fill="${t.axisText}">No star data found for ${repoLabel}</text>
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="400" viewBox="0 0 480 400">
+  <rect width="480" height="400" rx="12" fill="${t.bg}"/>
+  <text x="240" y="200" text-anchor="middle" font-family="sans-serif" font-size="14" fill="${t.axisText}">No star data found for ${repoLabel}</text>
 </svg>`;
   }
 
   const total = counts[n - 1];
-  const W = 820, H = 280;
-  const PL = 58, PR = 24, PT = 30, PB = 48;
+  const W = 480, H = 400;
+  const PL = 54, PR = 16, PT = 36, PB = 44;
   const CW = W - PL - PR, CH = H - PT - PB;
-  const GRID = 5, MAX_TICKS = 10;
+  const GRID = 5, MAX_TICKS = 7;
 
   const yMax = niceCeil(total * 1.08);
   const px   = i => n <= 1 ? PL + CW / 2 : PL + (i / (n - 1)) * CW;
